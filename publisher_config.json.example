@@ -1,0 +1,17 @@
+{
+  "builds_path": "path to root of the builds directory",
+  "builds_json_path": "path to the json file to be used for builds storage",
+  "builds_limit": 3,
+  "github_token": "github token here",
+  "blacklisted_devices": [
+    "list of device directories that will be ignored when parsing the directory tree",
+    "i9000",
+    "19100"
+  ],
+  "whitelisted_files_regex": [
+    "list of regex expressions for files that are not builds or recoveries but still need to be uploaded",
+    "lineage-\\S+-\\S+-dtb-\\S+.img",
+    "lineage-\\S+-\\S+-boot-\\S+.img",
+    "lineage-\\S+-\\S+-vendor-\\S+.img"
+  ]
+}
