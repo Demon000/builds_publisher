@@ -11,11 +11,13 @@ def extract_parts_from_path(file_path):
     filename = os.path.basename(file_path)
     return extract_filename_parts(filename)
 
+
 # lineage-17.1-20200422-UNOFFICIAL-bardock.zip
 def extract_date_from_path(file_path):
     filename = os.path.basename(file_path)
     parts = extract_filename_parts(filename)
     return parts[2]
+
 
 def is_device(file, blacklisted_devices):
     if not file.is_dir():
