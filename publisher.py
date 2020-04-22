@@ -135,13 +135,14 @@ class Publisher:
             print('\tfound existing build')
 
         # If the existing build does not have a recovery
+        # or if the new build doesn't have a recovery,
         # or if the new build has a different recovery,
-        # add the new recovery to the existing build
-        # Otherwise, add the existing recovery which is
-        # already uploaded to the new build
-        if existing_build.recovery is None or \
+        # set the existing build's recovery to the new one
+        # Otherwise, set the new build's recovery to the
+        # old one, which is already uploaded
+        if existing_build.recovery is None or new_build.recovery is None or \
                 existing_build.recovery.sha256 != new_build.recovery.sha256:
-            print('\texisting recovery is outdated')
+            print('\trecovery has been added, changed, or removed, using new recovery')
             existing_build.recovery = new_build.recovery
         else:
             print('\texisting recovery is the same as new recovery, using existing recovery')
