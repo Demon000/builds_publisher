@@ -62,10 +62,10 @@ publisher = Publisher(github_token, builds_json_path)
 for build_path in new_build_paths:
     recovery_path = find_recovery_path_for_build_path(build_path, recovery_paths)
     build = publisher.add_build_from_path(build_path, recovery_path)
-    publisher.publish_build(build)
+    publisher.upload_build(build)
 
 for other_path in other_file_paths:
-    other = publisher.add_build_from_path(other_path)
-    publisher.publish_build(other)
+    other = publisher.add_file_from_path(other_path)
+    publisher.upload_file(other)
 
 print('completed')
