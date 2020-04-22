@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+from os.path import relpath
 
 from github import Github
 
@@ -237,3 +238,14 @@ class Publisher:
                 .format(github_username, file.device, file.name, file.filename)
 
         return Publisher(upload_file_fn, builds_json_path)
+
+    @staticmethod
+    def create_local_publisher(base_path, builds_json_path):
+        def extract_relative_path_fn(file):
+            # File is already processed
+            if file.url is not None:
+                return
+
+            file.url = relpath(file.path, base_path)
+
+        return Publisher(extract_relative_path_fn, builds_json_path)

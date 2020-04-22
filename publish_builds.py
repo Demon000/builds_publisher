@@ -30,7 +30,7 @@ def get_config(name, default=None):
 builds_path = get_config('builds_path')
 builds_json_path = get_config('builds_json_path')
 builds_limit = get_config('builds_limit', 0)
-github_token = get_config('github_token')
+github_token = get_config('github_token', None)
 blacklisted_devices = get_config('blacklisted_devices', [])
 whitelisted_files_regex = get_config('whitelisted_files_regex', [])
 
@@ -57,7 +57,10 @@ for build_path in old_build_paths:
     print(f'removing old build {build_name} from disk')
     os.remove(build_path)
 
-publisher = Publisher(github_token, builds_json_path)
+if github_token is None:
+    publisher = Publisher.create_local_publisher(builds_path, builds_json_path)
+else:
+    publisher = Publisher.create_github_publisher(github_token, builds_json_path)
 
 for build_path in new_build_paths:
     recovery_path = find_recovery_path_for_build_path(build_path, recovery_paths)
