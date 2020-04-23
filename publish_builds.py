@@ -6,11 +6,16 @@ import sys
 from file_utils import is_device, is_build, is_other_regex, is_recovery, find_recovery_path_for_build_path
 from publisher import Publisher
 
-__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
+if len(sys.argv) < 2:
+    print(f'usage python {sys.argv[0]} /path/to/config.json')
+    sys.exit(-1)
+
+config_path = sys.argv[1]
 
 try:
-    with open(os.path.join(__location__, 'publisher_config.json'), 'r') as json_data_file:
-        config = json.load(json_data_file)
+    with open(config_path, 'r') as config_file:
+        config = json.load(config_file)
 except IOError:
     print("failed to find publisher_config.json file")
     sys.exit(-1)
