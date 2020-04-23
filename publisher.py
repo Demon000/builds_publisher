@@ -175,8 +175,11 @@ class Publisher:
 
     def read(self):
         # Read data from the builds.json file
-        with open(self.__builds_json_path, 'r') as builds_json_file:
-            devices_data = json.load(builds_json_file)
+        try:
+            with open(self.__builds_json_path, 'r') as builds_json_file:
+                devices_data = json.load(builds_json_file)
+        except IOError:
+            devices_data = {}
 
         # Deserialize files
         for device, serializations in devices_data.items():
