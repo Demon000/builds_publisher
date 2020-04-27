@@ -6,6 +6,8 @@ import os
 from os.path import relpath
 
 from github import Github
+from datetime import datetime
+from time import mktime
 
 
 def get_sha256(path):
@@ -43,10 +45,12 @@ class BaseFile:
         self.device = device
 
         self.date = '{}-{}-{}'.format(raw_date[0:4], raw_date[4:6], raw_date[6:8])
+        self.datetime = int(mktime(datetime.strptime(raw_date, '%Y%m%d').timetuple()))
 
     def serialize(self):
         serialization = {
             'date': self.date,
+            'datetime': self.datetime,
             'filename': self.filename,
             'filepath': self.url,
             'sha256': self.sha256,
