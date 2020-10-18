@@ -98,6 +98,9 @@ def is_recovery_path_matching_build_path_device(recovery_path, build_path):
     if recovery_parts[4] != build_parts[4]:
         return False
 
+    if recovery_parts[1] != build_parts[1]:
+        return False
+
     return True
 
 
