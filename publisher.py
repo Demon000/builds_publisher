@@ -61,8 +61,8 @@ class BaseFile:
         return serialization
 
 class RomFile(BaseFile):
-    def __init__(self, path=None, serialization=None):
-        super().__init__(path, serialization)
+    def __init__(self, path):
+        super().__init__(path)
 
         name, parts = extract_filename_parts(self.filename)
 
@@ -85,7 +85,7 @@ class Build:
             self.date = rom_file.date
             self.datetime = rom_file.datetime
         elif serialization is not None:
-            self.files = [BaseFile(file_serialization) for file_serialization in serialization['files']]
+            self.files = [BaseFile(serialization=file_serialization) for file_serialization in serialization['files']]
             self.type = serialization['type']
             self.version = serialization['version']
             self.date = serialization['date']
@@ -162,7 +162,7 @@ class Publisher:
 
         # Deserialize files
         for device, builds_serialization in devices_serialization.items():
-            builds = [Build(build_serialization) for build_serialization in builds_serialization]
+            builds = [Build(serialization=build_serialization) for build_serialization in builds_serialization]
             self.__devices[device] = builds
 
     def _write(self):
