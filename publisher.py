@@ -71,6 +71,7 @@ class RomFile(BaseFile):
         raw_date = parts[2]
         self.type = parts[3].lower()
         self.device = parts[4]
+        self.os_patch_level = None
 
         self.date = split_raw_date(raw_date)
         self.datetime = unix_raw_rate(raw_date)
@@ -84,12 +85,14 @@ class Build:
             self.version = rom_file.version
             self.date = rom_file.date
             self.datetime = rom_file.datetime
+            self.os_patch_level = rom_file.os_patch_level
         elif serialization is not None:
             self.files = [BaseFile(serialization=file_serialization) for file_serialization in serialization['files']]
             self.type = serialization['type']
             self.version = serialization['version']
             self.date = serialization['date']
             self.datetime = serialization['datetime']
+            self.os_patch_level = serialization.get('os_patch_level')
 
     def __eq__(self, other):
         return self.files == other.files
@@ -100,6 +103,7 @@ class Build:
             'version': self.version,
             'date': self.date,
             'datetime': self.datetime,
+            'os_patch_level': self.os_patch_level,
             'files': [file.serialize() for file in self.files]
         }
 
