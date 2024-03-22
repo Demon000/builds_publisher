@@ -174,7 +174,7 @@ class Publisher:
 
         # Write data back into the builds.json file
         with open(self.__builds_json_path, 'w') as builds_json_file:
-            json.dump(devices_serialization, builds_json_file)
+            json.dump(devices_serialization, builds_json_file, indent=4)
 
 class LocalPublisher(Publisher):
     def __init__(self, base_path, builds_json_path, ignored_versions):
