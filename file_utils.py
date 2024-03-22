@@ -7,11 +7,11 @@ def extract_filename_parts(filename):
     return name, name.split('-')
 
 
-def is_device(file, blacklisted_devices):
-    if not file.is_dir():
+def is_device(path, blacklisted_devices):
+    if not os.path.isdir(path):
         return False
 
-    device = os.path.basename(file.path)
+    device = os.path.basename(path)
     if device in blacklisted_devices:
         return False
 
@@ -19,11 +19,11 @@ def is_device(file, blacklisted_devices):
 
 
 # lineage-17.1-20200422-UNOFFICIAL-bardock.zip
-def is_build(file):
-    if not file.is_file():
+def is_build(path):
+    if not os.path.isfile(path):
         return False
 
-    filename = os.path.basename(file.path)
+    filename = os.path.basename(path)
     if not filename.endswith('.zip'):
         return False
 
