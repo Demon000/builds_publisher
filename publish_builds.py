@@ -51,9 +51,13 @@ def try_int(s):
 
 devices = [file.path for file in os.scandir(builds_path) if is_device(file.path, blacklisted_devices)]
 for device in devices:
-    print(f'found device {device}')
     device_build_paths = [file.path for file in os.scandir(device) if os.path.isdir(file.path)]
     device_build_paths.sort(key=lambda x: try_int(x))
+
+    if not device_build_paths:
+        continue
+
+    print(f'found device {device}')
 
     for build_path in device_build_paths:
         print(f'found build {os.path.basename(build_path)}')
