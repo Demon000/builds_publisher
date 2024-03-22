@@ -4,7 +4,7 @@
   "builds_limit": 3,
   "github_token": "github token here",
   "ignored_versions": [
-    "21",
+    "21.0",
   ],
   "blacklisted_devices": [
     "list of device directories that will be ignored when parsing the directory tree",
