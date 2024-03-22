@@ -220,7 +220,7 @@ class GithubPublisher(Publisher):
 
         return release
 
-    def _upload_file(self, release, file):
+    def _upload_file(self, repo, release, file):
         print(f'uploading file {file.filename}')
 
         release.upload_asset(file.path)
@@ -229,7 +229,7 @@ class GithubPublisher(Publisher):
 
         github_username = self.github_user.login
         file.url = 'https://github.com/{}/{}/releases/download/{}/{}' \
-            .format(github_username, file.device, file.name, file.filename)
+            .format(github_username, repo.name, release.name, file.filename)
 
     def _upload_build(self, build):
         repo = self._get_repo(build)
@@ -240,4 +240,4 @@ class GithubPublisher(Publisher):
         print(f'uploading build {file.filename}')
 
         for file in build.files:
-            self._upload_file(release, file)
+            self._upload_file(repo, release, file)
