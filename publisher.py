@@ -116,12 +116,17 @@ class Publisher:
 
     def add_build_from_path(self, rom_path, extra_paths):
         rom_file = RomFile(rom_path)
+
+        print(f'found {rom_file.filename}')
+
         if rom_file.version in self.__ignored_versions:
+            print(f'${rom_file.filename} is in ignored version, skipping')
             return
 
         files = [rom_file]
         for extra_path in extra_paths:
             extra_file = BaseFile(extra_path)
+            print(f'found {extra_file.filename}')
             files.append(extra_file)
 
         build = Build(files=files)
@@ -133,11 +138,13 @@ class Publisher:
         builds = self.__devices[device]
 
         if build in builds:
+            print(f'${rom_file.filename} exactly matches as existing build, skipping')
             return
 
         existing_build = None
         for old_build in builds:
             if build.date == old_build.date:
+                print(f'${rom_file.filename} overwrites an existing build')
                 existing_build = old_build
 
         self._upload_build(build)

@@ -51,26 +51,32 @@ def try_int(s):
 
 devices = [file.path for file in os.scandir(builds_path) if is_device(file.path, blacklisted_devices)]
 for device in devices:
+    print(f'found device {device}')
     device_build_paths = [file.path for file in os.scandir(device) if os.path.isdir(file.path)]
     device_build_paths.sort(key=lambda x: try_int(x))
+
+    for build_path in device_build_paths:
+        print(f'found build {os.path.basename(build_path)}')
 
     old_build_paths.extend(device_build_paths[:-builds_limit])
     new_build_paths.extend(device_build_paths[-builds_limit:])
 
 for build_path in old_build_paths:
-    build_name = os.path.basename(build_path)
-    print(f'removing old build {build_name} from disk')
+    print(f'removing old build {os.path.basename(build_path)} from disk')
     shutil.rmtree(build_path)
 
 if github_token == '':
+    print('creating local publisher')
     publisher = LocalPublisher(builds_path, builds_json_path, ignored_versions)
 else:
+    print('creating github publisher')
     publisher = GithubPublisher(github_token, builds_json_path, ignored_versions)
 
 for build_path in new_build_paths:
     build_files = [file.path for file in os.scandir(build_path)]
 
     if not build_files:
+        print(f'found build {os.path.basename(build_path)} without files')
         continue
 
     rom_path = None
@@ -82,7 +88,7 @@ for build_path in new_build_paths:
             extra_paths.append(build_file)
 
     if not rom_path:
-        print(f'found build {build_path} without ROM')
+        print(f'found build {build_path} without zip')
         continue
 
     publisher.add_build_from_path(rom_path, extra_paths)
