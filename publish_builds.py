@@ -2,9 +2,10 @@
 import json
 import os
 import sys
+import shutil
 
-from file_utils import is_device, is_build, is_other_regex, is_recovery, find_recovery_path_for_build_path
-from publisher import Publisher
+from file_utils import is_device, is_build
+from publisher import LocalPublisher, GithubPublisher
 
 
 if len(sys.argv) < 2:
@@ -33,47 +34,57 @@ def get_config(name, default=None):
 
 
 builds_path = get_config('builds_path')
+ignored_versions = get_config('ignored_versions', [])
 builds_json_path = get_config('builds_json_path')
 builds_limit = get_config('builds_limit', 0)
 github_token = get_config('github_token', '')
 blacklisted_devices = get_config('blacklisted_devices', [])
-whitelisted_files_regex = get_config('whitelisted_files_regex', [])
 
 old_build_paths = []
 new_build_paths = []
-other_file_paths = []
-recovery_paths = []
+
+def try_int(s):
+    try:
+        return int(s)
+    except:
+        return s
+
 devices = [file.path for file in os.scandir(builds_path) if is_device(file, blacklisted_devices)]
 for device in devices:
-    device_build_paths = [file.path for file in os.scandir(device) if is_build(file)]
-    device_build_paths.sort()
+    device_build_paths = [file.path for file in os.scandir(device)]
+    device_build_paths.sort(key=lambda x: try_int(x))
 
     old_build_paths.extend(device_build_paths[:-builds_limit])
     new_build_paths.extend(device_build_paths[-builds_limit:])
 
-    _recovery_paths = [file.path for file in os.scandir(device) if is_recovery(file)]
-    recovery_paths.extend(_recovery_paths)
-
-    _other_file_paths = [file.path for file in os.scandir(device) if is_other_regex(file, whitelisted_files_regex)]
-    other_file_paths.extend(_other_file_paths)
-
 for build_path in old_build_paths:
     build_name = os.path.basename(build_path)
     print(f'removing old build {build_name} from disk')
-    os.remove(build_path)
+    shutil.rmtree(build_path)
 
 if github_token == '':
-    publisher = Publisher.create_local_publisher(builds_path, builds_json_path)
+    publisher = LocalPublisher(builds_path, builds_json_path, ignored_versions)
 else:
-    publisher = Publisher.create_github_publisher(github_token, builds_json_path)
+    publisher = GithubPublisher(github_token, builds_json_path, ignored_versions)
 
 for build_path in new_build_paths:
-    recovery_path = find_recovery_path_for_build_path(build_path, recovery_paths)
-    build = publisher.add_build_from_path(build_path, recovery_path)
-    publisher.upload_build(build)
+    build_files = [file.path for file in os.scandir(build_path)]
 
-for other_path in other_file_paths:
-    other = publisher.add_file_from_path(other_path)
-    publisher.upload_file(other)
+    if not build_files:
+        continue
+
+    rom_path = None
+    extra_paths = []
+    for build_file in build_files:
+        if is_build(build_file):
+            rom_path = build_file
+        else:
+            extra_paths.append(build_file)
+
+    if not rom_path:
+        print(f'found build {build_path} without ROM')
+        continue
+
+    publisher.add_build_from_path(rom_path, extra_paths)
 
 print('completed')
