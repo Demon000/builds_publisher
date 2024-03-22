@@ -119,7 +119,7 @@ class Publisher:
     def __init__(self, builds_json_path, ignored_versions):
         self.__builds_json_path = builds_json_path
         self.__ignored_versions = ignored_versions
-        self.__devices = []
+        self.__devices = {}
 
         self._read()
 
