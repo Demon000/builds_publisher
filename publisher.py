@@ -120,7 +120,7 @@ class Publisher:
         print(f'found {rom_file.filename}')
 
         if rom_file.version in self.__ignored_versions:
-            print(f'${rom_file.filename} is in ignored version, skipping')
+            print(f'{rom_file.filename} is in ignored version, skipping')
             return
 
         files = [rom_file]
@@ -138,13 +138,13 @@ class Publisher:
         builds = self.__devices[device]
 
         if build in builds:
-            print(f'${rom_file.filename} exactly matches as existing build, skipping')
+            print(f'{rom_file.filename} exactly matches as existing build, skipping')
             return
 
         existing_build = None
         for old_build in builds:
             if build.date == old_build.date:
-                print(f'${rom_file.filename} overwrites an existing build')
+                print(f'{rom_file.filename} overwrites an existing build')
                 existing_build = old_build
 
         self._upload_build(build)
