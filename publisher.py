@@ -117,6 +117,7 @@ class Publisher:
         self.__devices = {}
 
         self._read()
+        self._write()
 
     def add_build_from_path(self, rom_path, extra_paths):
         rom_file = RomFile(rom_path)
