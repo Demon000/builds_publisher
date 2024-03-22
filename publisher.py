@@ -135,7 +135,15 @@ class Publisher:
         if build in builds:
             return
 
+        existing_build = None
+        for old_build in builds:
+            if build.date == old_build.date:
+                existing_build = old_build
+
         self._upload_build(build)
+
+        if existing_build is not None:
+            builds.remove(existing_build)
 
         builds.append(build)
 
