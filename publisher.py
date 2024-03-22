@@ -229,7 +229,7 @@ class GithubPublisher(Publisher):
 
         github_username = self.github_user.login
         file.url = 'https://github.com/{}/{}/releases/download/{}/{}' \
-            .format(github_username, repo.name, release.name, file.filename)
+            .format(github_username, repo.name, release.tag_name, file.filename)
 
     def _upload_build(self, build):
         repo = self._get_repo(build)
