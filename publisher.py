@@ -48,16 +48,7 @@ class BaseFile:
             self.filename = serialization['filename']
 
     def __eq__(self, other):
-        if self.path != other.path:
-            return False
-
-        if self.size != other.size:
-            return False
-
-        if self.sha256 != other.sha256:
-            return False
-
-        return True
+        return self.sha256 == other.sha256
 
     def serialize(self):
         serialization = {
