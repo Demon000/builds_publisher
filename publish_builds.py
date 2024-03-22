@@ -51,7 +51,7 @@ def try_int(s):
 
 devices = [file.path for file in os.scandir(builds_path) if is_device(file, blacklisted_devices)]
 for device in devices:
-    device_build_paths = [file.path for file in os.scandir(device)]
+    device_build_paths = [file.path for file in os.scandir(device) if os.path.isdir(file.path)]
     device_build_paths.sort(key=lambda x: try_int(x))
 
     old_build_paths.extend(device_build_paths[:-builds_limit])
