@@ -3,7 +3,7 @@ import re
 
 
 def extract_filename_parts(filename):
-    name = os.path.splitext(filename)
+    name = os.path.splitext(filename)[0]
     return name, name.split('-')
 
 
