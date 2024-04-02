@@ -1,57 +1,68 @@
 #!/usr/bin/python3
 
-import hashlib
 import json
-import os
-from os.path import relpath
 
-from github import Github
+from github import Github, GithubException
 from datetime import datetime
 from time import mktime
 
-from file_utils import extract_filename_parts
+from file_utils import extract_filename_parts, is_build, path_dirs, path_files, remove_filename_ext, is_dir, \
+    path_filename, file_size, path_relative, delete_dir, file_sha256
 
 
-def get_sha256(path):
-    sha256 = hashlib.sha256()
-    b = bytearray(128 * 1024)
-    mv = memoryview(b)
-
-    with open(path, 'rb', buffering=0) as file:
-        for index in iter(lambda: file.readinto(mv), 0):
-            sha256.update(mv[:index])
-
-    return sha256.hexdigest()
+def raw_date_to_split(raw_date):
+    return f'{raw_date[0:4]}-{raw_date[4:6]}-{raw_date[6:8]}'
 
 
-def split_raw_date(raw_date):
-    return '{}-{}-{}'.format(raw_date[0:4], raw_date[4:6], raw_date[6:8])
-
-
-def unix_raw_rate(raw_date):
-    time = datetime.strptime(raw_date, '%Y%m%d')
+def date_to_unix(date, fmt):
+    time = datetime.strptime(date, fmt)
     return int(mktime(time.timetuple()))
 
+
+def raw_date_to_unix(raw_date):
+    return date_to_unix(raw_date, '%Y%m%d')
+
+
+def split_date_to_unix(split_date):
+    return date_to_unix(split_date, '%Y-%m-%d')
+
+
 class BaseFile:
-    def __init__(self, path=None, serialization=None):
-        if path is not None:
-            self.path = path
-            self.url = None
-            self.size = os.path.getsize(path)
-            self.sha256 = get_sha256(self.path)
-            self.filename = os.path.basename(path)
-        elif serialization is not None:
-            self.path = None
-            self.url = serialization['filepath']
-            self.size = serialization['size']
-            self.sha256 = serialization['sha256']
-            self.filename = serialization['filename']
+    def __init__(self, path, url, size, sha256, filename):
+        self.path = path
+        self.url = url
+        self.size = size
+        self.sha256 = sha256
+        self.filename = filename
 
     def __eq__(self, other):
-        return self.sha256 == other.sha256
+        return self.filename == other.filename and self.sha256 == other.sha256
+
+    @classmethod
+    def deserialize(cls, serialization):
+        path = serialization['path']
+        url = serialization['filepath']
+        size = serialization['size']
+        sha256 = serialization['sha256']
+        filename = serialization['filename']
+        return cls(path, url, size, sha256, filename)
+
+    @classmethod
+    def extract_data_from_path(cls, path):
+        url = None
+        size = file_size(path)
+        sha256 = file_sha256(path)
+        filename = path_filename(path)
+        return path, url, size, sha256, filename
+
+    @classmethod
+    def from_path(cls, path):
+        args = cls.extract_data_from_path(path)
+        return cls(*args)
 
     def serialize(self):
         serialization = {
+            'path': self.path,
             'filename': self.filename,
             'filepath': self.url,
             'sha256': self.sha256,
@@ -60,124 +71,142 @@ class BaseFile:
 
         return serialization
 
+
 class RomFile(BaseFile):
-    def __init__(self, path):
-        super().__init__(path)
+    def __init__(self, version, type_, device, os_patch_level, date, date_time, *args):
+        super().__init__(*args)
 
-        name, parts = extract_filename_parts(self.filename)
+        self.version = version
+        self.type = type_
+        self.device = device
+        self.os_patch_level = os_patch_level
+        self.date = date
+        self.date_time = date_time
 
-        self.name = name
-        self.version = parts[1]
+    @classmethod
+    def extract_data_from_path(cls, path):
+        args = super().extract_data_from_path(path)
+
+        filename = path_filename(path)
+        parts = extract_filename_parts(filename)
+
+        version = parts[1]
         raw_date = parts[2]
-        self.type = parts[3].lower()
-        self.device = parts[4]
-        self.os_patch_level = None
+        type_ = parts[3].lower()
+        device = parts[4]
+        os_patch_level = None
 
-        self.date = split_raw_date(raw_date)
-        self.datetime = unix_raw_rate(raw_date)
+        date = raw_date_to_split(raw_date)
+        date_time = raw_date_to_unix(raw_date)
+
+        return version, type_, device, os_patch_level, date, date_time, *args
+
 
 class Build:
-    def __init__(self, files=None, serialization=None):
-        if files is not None:
-            rom_file = files[0]
-            self.files = files
-            self.type = rom_file.type
-            self.version = rom_file.version
-            self.date = rom_file.date
-            self.datetime = rom_file.datetime
-            self.os_patch_level = rom_file.os_patch_level
-        elif serialization is not None:
-            self.files = [BaseFile(serialization=file_serialization) for file_serialization in serialization['files']]
-            self.type = serialization['type']
-            self.version = serialization['version']
-            self.date = serialization['date']
-            self.datetime = serialization['datetime']
-            self.os_patch_level = serialization.get('os_patch_level')
+    def __init__(self, path, device, files, type_, version, date, date_time, os_patch_level):
+        self.path = path
+        self.device = device
+        self.files = files
+        self.type = type_
+        self.version = version
+        self.date = date
+        self.date_time = date_time
+        self.os_patch_level = os_patch_level
 
     def __eq__(self, other):
-        return self.files == other.files
+        return self.name == other.name and self.files == other.files
+
+    @property
+    def name(self):
+        rom_file = self.files[0]
+        return remove_filename_ext(rom_file.filename)
+
+    @classmethod
+    def deserialize(cls, serialization):
+        files = [BaseFile.deserialize(s) for s in serialization['files']]
+        path = serialization['path']
+        device = serialization['device']
+        type_ = serialization['type']
+        version = serialization['version']
+        date = serialization['date']
+        date_time = serialization['datetime']
+        os_patch_level = serialization.get('os_patch_level')
+        return cls(path, device, files, type_, version, date, date_time, os_patch_level)
+
+    @classmethod
+    def from_path(cls, path):
+        build_files = path_files(path)
+
+        if not build_files:
+            raise ValueError(f'{path_filename(path)} has no files')
+
+        rom_path = None
+        extra_paths = []
+        for build_file in build_files:
+            if is_build(build_file):
+                rom_path = build_file
+            else:
+                extra_paths.append(build_file)
+
+        if not rom_path:
+            raise ValueError(f'{path_filename(path)} has no build')
+
+        rom_file = RomFile.from_path(rom_path)
+
+        files = [rom_file]
+        for extra_path in extra_paths:
+            extra_file = BaseFile.from_path(extra_path)
+            files.append(extra_file)
+
+        device = rom_file.device
+        type_ = rom_file.type
+        version = rom_file.version
+        date = rom_file.date
+        date_time = rom_file.date_time
+        os_patch_level = rom_file.os_patch_level
+
+        return cls(path, device, files, type_, version, date, date_time, os_patch_level)
 
     def serialize(self):
         serialization = {
+            'path': self.path,
+            'device': self.device,
             'type': self.type,
             'version': self.version,
             'date': self.date,
-            'datetime': self.datetime,
+            'datetime': self.date_time,
             'os_patch_level': self.os_patch_level,
-            'files': [file.serialize() for file in self.files]
+            'files': [f.serialize() for f in self.files]
         }
 
         return serialization
 
 
-class Publisher:
-    def __init__(self, builds_json_path, ignored_versions):
-        self.__builds_json_path = builds_json_path
-        self.__ignored_versions = ignored_versions
-        self.__devices = {}
+class BuildsJson:
+    def __init__(self, path):
+        self.__path = path
+        self.__devices = None
 
-        self._read()
-        self._write()
+    def __enter__(self):
+        devices = {}
 
-    def add_build_from_path(self, rom_path, extra_paths):
-        rom_file = RomFile(rom_path)
-
-        print(f'found {rom_file.filename}')
-
-        if rom_file.version in self.__ignored_versions:
-            print(f'{rom_file.filename} is in ignored version, skipping')
-            return
-
-        files = [rom_file]
-        for extra_path in extra_paths:
-            extra_file = BaseFile(extra_path)
-            print(f'found {extra_file.filename}')
-            files.append(extra_file)
-
-        build = Build(files=files)
-        device = rom_file.device
-
-        if device not in self.__devices:
-            self.__devices[device] = []
-
-        builds = self.__devices[device]
-
-        if build in builds:
-            print(f'{rom_file.filename} exactly matches as existing build, skipping')
-            return
-
-        existing_build = None
-        for old_build in builds:
-            if build.date == old_build.date:
-                print(f'{rom_file.filename} overwrites an existing build')
-                existing_build = old_build
-
-        self._upload_build(build)
-
-        if existing_build is not None:
-            builds.remove(existing_build)
-
-        builds.append(build)
-
-        self._write()
-
-    def _upload_build(self, build):
-        pass
-
-    def _read(self):
         # Read data from the builds.json file
         try:
-            with open(self.__builds_json_path, 'r') as builds_json_file:
+            with open(self.__path, 'r') as builds_json_file:
                 devices_serialization = json.load(builds_json_file)
         except IOError:
             devices_serialization = {}
 
         # Deserialize files
         for device, builds_serialization in devices_serialization.items():
-            builds = [Build(serialization=build_serialization) for build_serialization in builds_serialization]
-            self.__devices[device] = builds
+            builds = [Build.deserialize(s) for s in builds_serialization]
+            devices[device] = builds
 
-    def _write(self):
+        self.__devices = devices
+
+        return devices
+
+    def __exit__(self, exception_type, exception_value, traceback):
         # Serialize files
         devices_serialization = {}
         for device, builds in self.__devices.items():
@@ -185,70 +214,415 @@ class Publisher:
             devices_serialization[device] = builds_serialization
 
         # Write data back into the builds.json file
-        with open(self.__builds_json_path, 'w') as builds_json_file:
+        with open(self.__path, 'w') as builds_json_file:
             json.dump(devices_serialization, builds_json_file, indent=4)
 
-class LocalPublisher(Publisher):
-    def __init__(self, base_path, builds_json_path, ignored_versions):
-        super().__init__(builds_json_path, ignored_versions)
+        return False
 
-        self.base_path = base_path
+
+class Publisher:
+    def __init__(self, builds_json_path, builds_path,
+                 blacklisted_devices, ignored_versions, builds_limit):
+        self._builds_path = builds_path
+        self.__builds_json = BuildsJson(builds_json_path)
+        self.__blacklisted_devices = blacklisted_devices
+        self.__ignored_versions = ignored_versions
+        self.__builds_limit = builds_limit
+
+    def _is_build_uploaded(self, build):
+        pass
+
+    def _upload_build(self, build):
+        pass
+
+    def _unupload_build(self, build):
+        pass
+
+    def _upload_build_file(self, build, file):
+        pass
+
+    def _remove_build_file(self, build, file):
+        pass
+
+    def _update_build_file(self, build, file):
+        pass
+
+    def find_all_builds(self):
+        all_builds = []
+
+        with self.__builds_json as devices:
+            for builds in devices.values():
+                all_builds.extend(builds)
+
+        return all_builds
+
+    def find_builds(self, device=None, version=None, min_date=None, max_date=None, date=None):
+        if (min_date is not None or max_date is not None) and date is not None:
+            raise ValueError('Cannot filter for both date and min/max date')
+
+        if min_date is None and max_date is None and date is not None:
+            min_date = date
+            max_date = date
+
+        min_date_unix = None
+        if min_date is not None:
+            min_date_unix = raw_date_to_unix(min_date)
+
+        max_date_unix = None
+        if max_date is not None:
+            ONE_DAY_SECONDS = 24 * 60 * 60
+            max_date_unix = raw_date_to_unix(max_date) + ONE_DAY_SECONDS
+
+        matching_builds = []
+
+        with self.__builds_json as devices:
+            for builds_device_name, builds in devices.items():
+                if device is not None and builds_device_name != device:
+                    continue
+
+                for build in builds:
+                    if version is not None and build.version != version:
+                        continue
+
+                    if min_date_unix is not None and \
+                            build.date_time < min_date_unix:
+                        continue
+
+                    if max_date_unix is not None and \
+                            build.date_time >= max_date_unix:
+                        continue
+
+                    matching_builds.append(build)
+
+        return matching_builds
+
+    def _get_device_builds(self, devices, device):
+        return devices.setdefault(device, [])
+
+    def _get_build_by_name(self, builds, build_name):
+        for build in builds:
+            if build.name == build_name:
+                return build
+
+        return None
+
+    def is_build_skipped(self, build):
+        if build.device in self.__blacklisted_devices:
+            print(f'Build {build.name} is for blacklisted device {build.device}, skipping')
+            return True
+
+        if build.version in self.__ignored_versions:
+            print(f'Build {build.name} is for ignored version {build.version}, skipping')
+            return True
+
+        return False
+
+    def _unindex_build(self, builds, build):
+        try:
+            builds.remove(build)
+        except ValueError:
+            pass
+
+    def _unindex_builds(self, builds, removed_builds):
+        for build in removed_builds:
+            builds.remove(build)
+        return removed_builds
+
+    def _sort_builds_by_datetime(self, builds):
+        builds.sort(key=lambda x: x.date_time, reverse=True)
+
+    def _get_more_than_limit_builds(self, builds):
+        self._sort_builds_by_datetime(builds)
+        if self.__builds_limit == 0:
+            return []
+
+        return builds[self.__builds_limit:]
+
+    def _is_device_build_more_than_limit(self, builds, build):
+        new_builds = builds[:] + [build]
+        old_builds = self._get_more_than_limit_builds(new_builds)
+        return build in old_builds
+
+    def _remove_build(self, builds, build):
+        self._unupload_build(build)
+        self._unindex_build(builds, build)
+
+    def _remove_builds(self, builds, removed_builds):
+        for build in removed_builds:
+            self._remove_build(builds, build)
+        return removed_builds
+
+    def remove_build(self, build):
+        with self.__builds_json as devices:
+            builds = self._get_device_builds(devices, build.device)
+            self._remove_build(builds, build)
+
+    def is_build_uploaded(self, build):
+        print(f'Checking if build {build.name} is uploaded')
+        return self._is_build_uploaded(build)
+
+    def _unindex_not_uploaded_builds(self, builds):
+        unindexed_builds = [b for b in builds if not self.is_build_uploaded(b)]
+        return self._unindex_builds(builds, unindexed_builds)
+
+    def _unindex_skipped_builds(self, builds):
+        unindexed_builds = [b for b in builds if self.is_build_skipped(b)]
+        return self._unindex_builds(builds, unindexed_builds)
+
+    def _remove_more_than_limit_builds(self, builds):
+        old_builds = self._get_more_than_limit_builds(builds)
+        return self._remove_builds(builds, old_builds)
+
+    def _remove_more_than_limit_builds_print(self, builds):
+        removed_builds = self._remove_more_than_limit_builds(builds)
+        for build in removed_builds:
+            print(f'Build {build.name} exceeds builds limit, removing')
+
+    def clean_builds(self, devices):
+        for builds in devices.values():
+            removed_builds = self._unindex_skipped_builds(builds)
+            for build in removed_builds:
+                print(f'Build {build.name} is skipped, removing from index')
+
+            removed_builds = self._unindex_not_uploaded_builds(builds)
+            for build in removed_builds:
+                print(f'Build {build.name} is not uploaded, removing from index')
+
+            self._remove_more_than_limit_builds_print(builds)
+
+        print()
+
+    def _index_device_path(self, devices, device_path):
+        device_name = path_filename(device_path)
+
+        print(f'Found device path {device_path}')
+
+        if device_name in self.__blacklisted_devices:
+            print(f'Device path {device_path} is for blacklisted device {device_name}, skipping')
+            print()
+            return
+
+        build_paths = path_dirs(device_path, descending=True)
+
+        builds = self._get_device_builds(devices, device_name)
+        new_builds = []
+
+        for build_path in build_paths:
+            try:
+                build = Build.from_path(build_path)
+                if device_name != build.device:
+                    raise ValueError(f'Device path {device_path} contains ' +
+                                     f'build {build.name} for device {build.device}')
+
+                new_builds.append(build)
+            except ValueError as e:
+                print(e)
+
+        self._add_builds(builds, new_builds)
+
+        print()
+
+    def index_builds(self):
+        print(f'Indexing path {self._builds_path}')
+
+        device_paths = path_dirs(self._builds_path)
+
+        with self.__builds_json as devices:
+            self.clean_builds(devices)
+
+            for device_path in device_paths:
+                self._index_device_path(devices, device_path)
+
+    def _update_build(self, existing_build, build):
+        # Find all files that are not exactly the same inside the
+        # updated build and remove them from the existing build
+        removed_files = []
+        for existing_file in existing_build.files:
+            found = False
+
+            for file in build.files:
+                if file == existing_file:
+                    found = True
+                    break
+
+            if not found:
+                removed_files.append(existing_file)
+
+        for file in removed_files:
+            print(f'Removing old file {file.filename}')
+            self._remove_build_file(existing_build, file)
+            existing_build.files.remove(file)
+
+        # Find all files that are not exactly the same inside the
+        # existing build and add them to the existing build
+        added_files = []
+        for file in build.files:
+            found = False
+
+            for existing_file in existing_build.files:
+                if file == existing_file:
+                    found = True
+                    break
+
+            if not found:
+                added_files.append(file)
+
+        for file in added_files:
+            print(f'Uploading new file {file.filename}')
+            self._upload_build_file(build, file)
+            existing_build.files.append(file)
+
+    def _add_builds(self, builds, new_builds):
+        self._remove_more_than_limit_builds_print(builds)
+
+        for build in new_builds:
+            self._add_build(builds, build)
+            self._remove_more_than_limit_builds_print(builds)
+
+    def _add_build(self, builds, build):
+        if self.is_build_skipped(build):
+            return False
+
+        existing_build = self._get_build_by_name(builds, build.name)
+
+        if existing_build is None \
+                and self._is_device_build_more_than_limit(builds, build):
+            print(f'Found new build {build.name} that exceeds builds limit, removing')
+            self._unupload_build(build)
+        elif existing_build is None:
+            print(f'Found new build {build.name}')
+            self._upload_build(build)
+            builds.append(build)
+
+            self._remove_more_than_limit_builds(builds)
+        elif existing_build != build:
+            print(f'Found existing build {build.name} with changes, updating')
+            self._update_build(existing_build, build)
+        else:
+            print(f'Found existing build {build.name}')
+
+        print()
+
+    def add_build(self, build):
+        with self.__builds_json as devices:
+            builds = self._get_device_builds(devices, build.device)
+            self._add_builds(builds, [build])
+
+
+class LocalPublisher(Publisher):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+    def _is_build_uploaded(self, build):
+        return is_dir(build.path)
+
+    def _unupload_build(self, build):
+        try:
+            delete_dir(build.path)
+        except FileNotFoundError:
+            pass
 
     def _upload_build(self, build):
         for file in build.files:
-            file.url = relpath(file.path, self.base_path)
+            file.url = path_relative(self._builds_path, file.path)
+
 
 class GithubPublisher(Publisher):
-    def __init__(self, github_token, builds_json_path, ignored_versions):
-        super().__init__(builds_json_path, ignored_versions)
+    def __init__(self, github_token, github_organization, *args):
+        super().__init__(*args)
 
-        self.github_user = Github(github_token).get_user()
+        self._github = Github(github_token)
+
+        if github_organization:
+            self._repo_place = self._github.get_organization(
+                github_organization)
+        else:
+            self._repo_place = self._github.get_user()
+
+    def _create_empty_repo(self, build):
+        repo = self._repo_place.create_repo(build.device)
+        repo.create_file('README', 'initial commit', build.device)
+        return repo
+
+    def _find_repo(self, build):
+        try:
+            return self._repo_place.get_repo(build.device)
+        except GithubException as e:
+            print(e)
+            return None
 
     def _get_repo(self, build):
-        file = build.files[0]
+        repo = self._find_repo(build)
 
-        # Try to create the repo, if it exists, skip the creation
-        try:
-            repo = self.github_user.create_repo(build.device)
-            repo.create_file('README', 'initial commit', file.device)
-        except:
-            repo = self.github_user.get_repo(file.device)
+        if repo is None:
+            repo = self._create_empty_repo(build)
 
         return repo
 
-    def _create_release(self, repo, build):
-        file = build.files[0]
+    def _get_release(self, repo, build):
+        return repo.get_release(build.name)
 
-        # Try to delete the release if it exists
+    def _delete_release(self, repo, build):
+        release = self._get_release(repo, build)
+        release.delete_release()
+
+    def _create_empty_release(self, repo, build):
         try:
-            release = repo.get_release(file.name)
-            release.delete_release()
-        except:
+            self._delete_release(repo, build)
+        except GithubException:
             pass
 
-        # Create the release
-        release = repo.create_git_release(file.name, file.name, file.name)
+        return repo.create_git_release(build.name, build.name, build.name)
 
-        return release
+    def _unupload_build(self, build):
+        repo = self._find_repo(build)
+        if repo is None:
+            return
 
-    def _upload_file(self, repo, release, file):
-        print(f'uploading file {file.filename}')
+        try:
+            self._delete_release(repo, build)
+        except GithubException:
+            pass
 
-        release.upload_asset(file.path)
+    def _is_build_uploaded(self, build):
+        repo = self._find_repo(build)
+        if repo is None:
+            return False
 
-        print(f'uploaded file {file.filename}')
+        release = self._get_release(repo, build)
+        return release is not None
 
-        github_username = self.github_user.login
-        file.url = 'https://github.com/{}/{}/releases/download/{}/{}' \
-            .format(github_username, repo.name, release.tag_name, file.filename)
+    def _upload_file(self, release, file):
+        try:
+            self._remove_file(release, file)
+        except GithubException:
+            pass
+
+        asset = release.upload_asset(file.path)
+
+        file.url = asset.browser_download_url
+
+    def _upload_build_file(self, build, file):
+        repo = self._get_repo(build)
+        release = self._get_release(repo, build)
+
+        self._upload_file(release, file)
+
+    def _remove_file(self, release, file):
+        for asset in release.assets:
+            if asset.name == file.filename:
+                asset.delete_asset()
+
+    def _remove_build_file(self, build, file):
+        repo = self._get_repo(build)
+        release = self._get_release(repo, build)
+        self._remove_file(release, file)
 
     def _upload_build(self, build):
         repo = self._get_repo(build)
-        release = self._create_release(repo, build)
-
-        file = build.files[0]
-
-        print(f'uploading build {file.filename}')
+        release = self._create_empty_release(repo, build)
 
         for file in build.files:
-            self._upload_file(repo, release, file)
+            print(f'Uploading file {file.filename}')
+            self._upload_file(release, file)
+            print(f'Uploaded file {file.filename}')
