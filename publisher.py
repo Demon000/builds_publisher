@@ -609,7 +609,12 @@ class GithubPublisher(Publisher):
         self._upload_file(release, file)
 
     def _remove_file(self, release, file):
-        for asset in release.assets:
+        try:
+            assets = release.assets
+        except AttributeError:
+            assets = release.get_assets()
+
+        for asset in assets:
             if asset.name == file.filename:
                 asset.delete_asset()
 
