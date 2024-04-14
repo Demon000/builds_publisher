@@ -46,6 +46,10 @@ def path_files(path):
     return [f.path for f in os.scandir(path) if is_file(f.path)]
 
 
+def path_join(base_path, path):
+    return os.path.join(base_path, path)
+
+
 def path_dirs(path, descending=False):
     if not is_dir(path):
         raise ValueError(f'{path} is not a directory')

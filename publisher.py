@@ -7,7 +7,7 @@ from datetime import datetime
 from time import mktime
 
 from file_utils import extract_filename_parts, is_build, path_dirs, path_files, remove_filename_ext, is_dir, \
-    path_filename, file_size, path_relative, delete_dir, file_sha256
+    path_filename, file_size, path_relative, delete_dir, file_sha256, path_join
 
 
 def raw_date_to_split(raw_date):
@@ -378,17 +378,22 @@ class Publisher:
         for build in removed_builds:
             print(f'Build {build.name} exceeds builds limit, removing')
 
+    def clean_device_builds(self, devices, device):
+        builds = self._get_device_builds(devices, device)
+
+        removed_builds = self._unindex_skipped_builds(builds)
+        for build in removed_builds:
+            print(f'Build {build.name} is skipped, removing from index')
+
+        removed_builds = self._unindex_not_uploaded_builds(builds)
+        for build in removed_builds:
+            print(f'Build {build.name} is not uploaded, removing from index')
+
+        self._remove_more_than_limit_builds_print(builds)
+
     def clean_builds(self, devices):
-        for builds in devices.values():
-            removed_builds = self._unindex_skipped_builds(builds)
-            for build in removed_builds:
-                print(f'Build {build.name} is skipped, removing from index')
-
-            removed_builds = self._unindex_not_uploaded_builds(builds)
-            for build in removed_builds:
-                print(f'Build {build.name} is not uploaded, removing from index')
-
-            self._remove_more_than_limit_builds_print(builds)
+        for device in devices.keys():
+            self.clean_device_builds(devices, device)
 
         print()
 
@@ -421,6 +426,16 @@ class Publisher:
         self._add_builds(builds, new_builds)
 
         print()
+
+    def index_device_builds(self, device):
+        path = path_join(self._builds_path, device)
+
+        print(f'Indexing path {path}')
+
+        with self.__builds_json as devices:
+            self.clean_device_builds(devices, device)
+
+            self._index_device_path(devices, path)
 
     def index_builds(self):
         print(f'Indexing path {self._builds_path}')

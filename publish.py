@@ -17,6 +17,8 @@ subparsers.required = True
 
 parser_index = subparsers.add_parser('index')
 add_config_arg(parser_index)
+parser_index.add_argument(
+    '-m', '--model', help='Index builds for a given device model')
 
 parser_add = subparsers.add_parser('add')
 add_config_arg(parser_add)
@@ -56,7 +58,10 @@ for config_path in args.config:
         publisher = LocalPublisher(*publisher_args)
 
     if args.command == 'index':
-        publisher.index_builds()
+        if args.model:
+            publisher.index_device_builds(args.model)
+        else:
+            publisher.index_builds()
     elif args.command == 'add':
         try:
             build = Build.from_path(args.build)
