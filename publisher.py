@@ -506,7 +506,7 @@ class Publisher:
 
     def _add_build(self, builds, build):
         if self.is_build_skipped(build):
-            return False
+            return
 
         existing_build = self._get_build_by_name(builds, build.name)
 
