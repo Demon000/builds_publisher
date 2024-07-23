@@ -87,17 +87,18 @@ def extract_filename_parts(filename):
 
 
 # lineage-17.1-20200422-UNOFFICIAL-bardock.zip
+# lineage-21.0-20240622-UNOFFICIAL-arm64-gsi.img
 def is_build(path):
     if not is_file(path):
         return False
 
     filename = path_filename(path)
-    if not filename.endswith('.zip'):
+    if not filename.endswith('.zip') and not filename.endswith('.img'):
         return False
 
     parts = extract_filename_parts(filename)
 
-    if len(parts) != 5:
+    if len(parts) != 5 and (len(parts) != 6 or parts[5] != 'gsi'):
         return False
 
     if parts[0] != 'lineage':
