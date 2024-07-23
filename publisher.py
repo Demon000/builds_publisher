@@ -379,6 +379,7 @@ class Publisher:
         removed_builds = self._remove_more_than_limit_builds(builds)
         for build in removed_builds:
             print(f'Build {build.name} exceeds builds limit, removing')
+        return removed_builds
 
     def clean_device_builds(self, devices, device):
         builds = self._get_device_builds(devices, device)
@@ -490,11 +491,18 @@ class Publisher:
             existing_build.files.append(file)
 
     def _add_builds(self, builds, new_builds):
-        self._remove_more_than_limit_builds_print(builds)
+        removed_builds = self._remove_more_than_limit_builds_print(builds)
 
         for build in new_builds:
+            # This is not actually a new build, it was just removed earlier
+            # because it exceeded the limit after a more recent build has
+            # been added. Do not try adding it again.
+            if build in removed_builds:
+                continue
+
             self._add_build(builds, build)
-            self._remove_more_than_limit_builds_print(builds)
+            new_removed_builds = self._remove_more_than_limit_builds_print(builds)
+            removed_builds = removed_builds + new_removed_builds
 
     def _add_build(self, builds, build):
         if self.is_build_skipped(build):
@@ -510,8 +518,6 @@ class Publisher:
             print(f'Found new build {build.name}')
             self._upload_build(build)
             builds.append(build)
-
-            self._remove_more_than_limit_builds(builds)
         elif existing_build != build:
             print(f'Found existing build {build.name} with changes, updating')
             self._update_build(existing_build, build)
