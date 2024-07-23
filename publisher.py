@@ -6,8 +6,7 @@ from github import Github, GithubException
 from datetime import datetime
 from time import mktime
 
-from file_utils import extract_filename_parts, is_build, path_dirs, path_files, remove_filename_ext, is_dir, \
-    path_filename, file_size, path_relative, delete_dir, file_sha256, path_join
+from file_utils import *
 
 
 def raw_date_to_split(raw_date):
