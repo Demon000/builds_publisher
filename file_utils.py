@@ -39,28 +39,29 @@ def path_filename(path):
     return os.path.basename(path)
 
 
-def path_files(path):
-    if not is_dir(path):
-        raise ValueError(f'{path} is not a directory')
-
-    return [f.path for f in os.scandir(path) if is_file(f.path)]
-
-
 def path_join(base_path, path):
     return os.path.join(base_path, path)
 
 
-def path_dirs(path, descending=False):
+def _path_files(path, check_fn, descending):
     if not is_dir(path):
         raise ValueError(f'{path} is not a directory')
 
-    paths = [f for f in os.scandir(path) if is_dir(f.path)]
+    paths = [f for f in os.scandir(path) if check_fn(f.path)]
 
     paths.sort(key=lambda f: f.name.lower(), reverse=descending)
 
     paths = [f.path for f in paths]
 
     return paths
+
+
+def path_files(path, descending=False):
+    return _path_files(path, is_file, descending)
+
+
+def path_dirs(path, descending=False):
+    return _path_files(path, is_dir, descending)
 
 
 def remove_filename_ext(filename):
