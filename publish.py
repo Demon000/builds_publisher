@@ -19,11 +19,8 @@ parser_index = subparsers.add_parser('index')
 add_config_arg(parser_index)
 parser_index.add_argument(
     '-m', '--model', help='Index builds for a given device model')
-
-parser_add = subparsers.add_parser('add')
-add_config_arg(parser_add)
-
-parser_add.add_argument('build')
+parser_index.add_argument(
+    '-b', '--build', help='Index specific build')
 
 parser_delete = subparsers.add_parser('delete')
 add_config_arg(parser_delete)
@@ -58,17 +55,12 @@ for config_path in args.config:
         publisher = LocalPublisher(*publisher_args)
 
     if args.command == 'index':
-        if args.model:
+        if args.build:
+            publisher.index_build(args.build)
+        elif args.model:
             publisher.index_device_builds(args.model)
         else:
             publisher.index_builds()
-    elif args.command == 'add':
-        try:
-            build = Build.from_path(args.build)
-            publisher.add_build(build)
-        except ValueError as e:
-            print(e)
-            exit(1)
     elif args.command == 'delete':
         if args.all:
             builds = publisher.find_all_builds()

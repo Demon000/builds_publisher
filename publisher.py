@@ -451,6 +451,12 @@ class Publisher:
             for device_path in device_paths:
                 self._index_device_path(devices, device_path)
 
+    def index_build(self, path):
+        print(f'Indexing path {path}')
+
+        build = Build.from_path(path)
+        self.add_build(build)
+
     def _update_build(self, existing_build, build):
         # Find all files that are not exactly the same inside the
         # updated build and remove them from the existing build
