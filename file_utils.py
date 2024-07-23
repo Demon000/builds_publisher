@@ -3,16 +3,25 @@ import os
 import shutil
 
 
-def delete_dir(path):
-    shutil.rmtree(path)
-
-
 def is_dir(path):
     return os.path.isdir(path)
 
 
 def is_file(path):
     return os.path.isfile(path)
+
+
+def is_dir_or_file(path):
+    return is_dir(path) or is_file(path)
+
+
+def delete_dir_or_file(path):
+    if is_dir(path):
+        shutil.rmtree(path)
+    elif is_file(path):
+        os.remove(path)
+    else:
+        raise ValueError(f'{path} is not a file or directory')
 
 
 def file_size(path):
@@ -58,6 +67,10 @@ def _path_files(path, check_fn, descending):
 
 def path_files(path, descending=False):
     return _path_files(path, is_file, descending)
+
+
+def path_files_or_dirs(path, descending=False):
+    return _path_files(path, is_dir_or_file, descending)
 
 
 def path_dirs(path, descending=False):

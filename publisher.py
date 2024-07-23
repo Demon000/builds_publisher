@@ -134,7 +134,10 @@ class Build:
 
     @classmethod
     def from_path(cls, path):
-        build_files = path_files(path)
+        if is_build(path):
+            build_files = [path]
+        else:
+            build_files = path_files(path)
 
         if not build_files:
             raise ValueError(f'{path_filename(path)} has no files')
@@ -406,7 +409,7 @@ class Publisher:
             print()
             return
 
-        build_paths = path_dirs(device_path, descending=True)
+        build_paths = path_files_or_dirs(device_path, descending=True)
 
         builds = self._get_device_builds(devices, device_name)
         new_builds = []
@@ -528,11 +531,11 @@ class LocalPublisher(Publisher):
         super().__init__(*args)
 
     def _is_build_uploaded(self, build):
-        return is_dir(build.path)
+        return is_dir_or_file(build.path)
 
     def _unupload_build(self, build):
         try:
-            delete_dir(build.path)
+            delete_dir_or_file(build.path)
         except FileNotFoundError:
             pass
 
