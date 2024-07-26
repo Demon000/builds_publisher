@@ -589,7 +589,12 @@ class GithubPublisher(Publisher):
         return repo
 
     def _get_release(self, repo, build):
-        return repo.get_release(build.name)
+        release = None
+        try:
+            release = repo.get_release(build.name)
+        except GithubException:
+            pass
+        return release
 
     def _delete_release(self, repo, build):
         release = self._get_release(repo, build)
