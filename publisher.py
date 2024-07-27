@@ -610,7 +610,8 @@ class GithubPublisher(Publisher):
 
     def _delete_release(self, repo, build):
         release = self._get_release(repo, build)
-        release.delete_release()
+        if release is not None:
+            release.delete_release()
 
     def _create_empty_release(self, repo, build):
         try:
