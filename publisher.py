@@ -26,6 +26,15 @@ def split_date_to_unix(split_date):
     return date_to_unix(split_date, '%Y-%m-%d')
 
 
+def print_rlc(s, rlc):
+    print("{} | Limit: {}, Remaining: {}, Reset: {}.".format(s, rlc.limit, rlc.remaining, rlc.reset))
+
+
+def print_rl(rl):
+    print_rlc('Core', rl.core)
+    print_rlc('Search', rl.search)
+
+
 class BaseFile:
     def __init__(self, path, url, size, sha256, filename):
         self.path = path
@@ -561,6 +570,9 @@ class GithubPublisher(Publisher):
         super().__init__(*args)
 
         self._github = Github(github_token)
+
+        rl = self._github.get_rate_limit()
+        print_rl(rl)
 
         if github_organization:
             self._repo_place = self._github.get_organization(
