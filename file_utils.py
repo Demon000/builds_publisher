@@ -1,6 +1,7 @@
 import hashlib
 import os
 import shutil
+import pathlib
 
 
 def is_dir(path):
@@ -77,13 +78,41 @@ def path_dirs(path, descending=False):
     return _path_files(path, is_dir, descending)
 
 
-def remove_filename_ext(filename):
+valid_extensions = [
+    '.img.tar.gz',
+    '.img',
+    '.zip',
+]
+
+
+def extract_path_name_valid_ext(path):
+    filename = path_filename(path)
+    for ext in valid_extensions:
+        if filename.endswith(ext):
+            name = filename[:-len(ext)]
+            return name, ext
+
+    return filename, None
+
+
+def remove_filename_ext_simple(filename):
     return os.path.splitext(filename)[0]
 
 
-def extract_filename_parts(filename):
-    name = remove_filename_ext(filename)
+def remove_filename_ext(filename):
+    name, ext = extract_path_name_valid_ext(filename)
+    if not ext:
+        name = remove_filename_ext_simple(filename)
+    return name
+
+
+def extract_name_parts(name):
     return name.split('-')
+
+
+def extract_filename_parts(filename):
+    name, _ = extract_path_name_valid_ext(filename)
+    return extract_name_parts(name)
 
 
 # lineage-17.1-20200422-UNOFFICIAL-bardock.zip
@@ -92,12 +121,11 @@ def is_build(path):
     if not is_file(path):
         return False
 
-    filename = path_filename(path)
-    if not filename.endswith('.zip') and not filename.endswith('.img'):
+    name, ext = extract_path_name_valid_ext(path)
+    if not ext:
         return False
 
-    parts = extract_filename_parts(filename)
-
+    parts = extract_name_parts(name)
     if len(parts) != 5 and (len(parts) != 6 or parts[5] != 'gsi'):
         return False
 
